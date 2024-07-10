@@ -11,10 +11,19 @@ var debug = require("debug")("my-express-api:server");
 var http = require("http");
 
 // Database
-const database = require("../config/database");
+const createTable = require("../scripts/createTable");
+const { testConnection } = require("../config/database");
 
-// Connect to database
-database();
+const initialize = async () => {
+  try {
+    await createTable();
+    await testConnection();
+  } catch (err) {
+    console.error("Initialization error:", err.message);
+  }
+};
+
+initialize();
 
 /**
  * Get port from environment and store in Express.
