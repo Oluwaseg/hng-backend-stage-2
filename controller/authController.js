@@ -105,7 +105,7 @@ const loginUser = async (req, res) => {
     throw new UnauthenticatedError("Authentication failed");
   }
 
-  const client = await pool();
+  const client = await pool.connect();
   try {
     const findUserQuery = {
       text: "SELECT * FROM users WHERE email = $1",
