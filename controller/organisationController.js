@@ -5,11 +5,10 @@ const { getPool } = require("../config/database");
 const pool = getPool();
 
 const getAllOrganisations = async (req, res) => {
-  const { userId } = req.user;
+  const { userId } = req.user.userId.payload;
   const client = await pool.connect();
-
   try {
-    console.log("Checking user existence for userId", userId);
+    // Query to check if the user exists
     const userQuery = {
       text: `SELECT * FROM users WHERE user_id = $1;`,
       values: [userId],
@@ -21,8 +20,9 @@ const getAllOrganisations = async (req, res) => {
       throw new BadRequestError(`User does not exist.`);
     }
 
+    // Query to fetch organisations associated with the user
     const orgQuery = {
-      text: `SELECT org_id, name, description FROM organisations WHERE user_id = $1`,
+      text: `SELECT org_id, name, description FROM organisations WHERE user_id = $1;`,
       values: [userId],
     };
 
@@ -30,7 +30,7 @@ const getAllOrganisations = async (req, res) => {
 
     const dataObj = {
       status: "success",
-      message: "Request successful",
+      message: "Organisations fetched successfully",
       data: {
         organisations: rows,
       },
@@ -39,9 +39,9 @@ const getAllOrganisations = async (req, res) => {
     res.status(200).json(dataObj);
   } catch (error) {
     console.error("Error fetching organisations:", error);
-    throw error;
+    res.status(500).json({ error: "Internal Server Error" }); // Respond with a generic error message
   } finally {
-    await client.end();
+    await client.release(); // Release the client back to the pool
   }
 };
 
@@ -75,13 +75,17 @@ const getOrganisation = async (req, res) => {
 
 const createOrganisation = async (req, res) => {
   const { name, description } = req.body;
-  const { userId } = req.user;
+  const { userId } = req.user.userId.payload;
 
   if (!name) throw new BadRequestError(`Provide name field.`);
   const client = await pool.connect();
 
   try {
+    // const orgValues = [uuidv4(), name, description, userId, `{${userId}}`];
     const orgValues = [uuidv4(), name, description, userId, `{${userId}}`];
+    console.log("org_id:", orgValues[0], "length:", orgValues[0].length); // Check length of org_id
+    console.log("userId:", orgValues[3], "length:", orgValues[3].length); // Check length of userId
+
     const orgQuery = {
       text: `INSERT INTO organisations (org_id, name, description, user_id, members) VALUES ($1, $2, $3, $4, $5) RETURNING *;`,
       values: orgValues,
@@ -111,8 +115,13 @@ const createOrganisation = async (req, res) => {
 
 const addUserToOrganisation = async (req, res) => {
   const { orgId } = req.params;
-  const { userId } = req.user;
+  const { userId: currentUserId } = req.user.userId.payload;
+  const { userId } = req.body; // The userId of the user to be added to the organization
+
   if (!orgId) throw new BadRequestError(`Provide valid orgId parameter.`);
+  if (!userId)
+    throw new BadRequestError(`Provide valid userId to add to organization.`);
+
   const client = await pool.connect();
 
   try {
@@ -130,8 +139,16 @@ const addUserToOrganisation = async (req, res) => {
     };
 
     const { rows: orgData } = await client.query(orgQuery);
+    if (orgData.length === 0)
+      throw new BadRequestError(`Organization does not exist.`);
+
     const { members } = orgData[0];
-    let updatedMembers = [...members, userId].join(",");
+    if (members.includes(userId))
+      throw new BadRequestError(
+        `User is already a member of the organization.`
+      );
+
+    const updatedMembers = [...members, userId].join(",");
 
     const updateQuery = {
       text: `UPDATE organisations SET members = $1 WHERE org_id = $2 RETURNING *;`,
@@ -142,12 +159,12 @@ const addUserToOrganisation = async (req, res) => {
 
     const dataObj = {
       status: "success",
-      message: "User added to organisation successfully",
+      message: "User added to organization successfully",
     };
 
     res.status(200).json(dataObj);
   } catch (error) {
-    console.error("Error adding user to organisation:", error);
+    console.error("Error adding user to organization:", error);
     throw error;
   } finally {
     await client.end();
