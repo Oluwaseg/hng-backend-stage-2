@@ -18,7 +18,9 @@ const generateToken = (userId) => {
 const decodeToken = async (token) => {
   try {
     console.log("Decoding token:", token);
-    return jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const { userId } = decoded; // Directly access userId here
+    return userId;
   } catch (err) {
     console.error("Error decoding token:", err.message);
     throw new Error("Token verification failed");

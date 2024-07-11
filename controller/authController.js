@@ -69,7 +69,9 @@ const registerUser = async (req, res) => {
     } = rows[0];
 
     // Create access token
-    const accessToken = await generateToken({ payload: { userId: user_id } });
+    const accessToken = await generateToken({
+      payload: { userId: user_id },
+    });
 
     // Prepare response
     const dataObj = {
