@@ -17,7 +17,7 @@ const createTable = async () => {
       password TEXT NOT NULL, 
       phone VARCHAR(13)
     );`;
-
+    const dropOrganisation = `DROP TABLE IF EXISTS organisations;`;
     const createOrganization = `CREATE TABLE IF NOT EXISTS organisations (
       org_id VARCHAR(40) UNIQUE NOT NULL, 
       name VARCHAR(50) NOT NULL, 
@@ -28,6 +28,7 @@ const createTable = async () => {
     );`;
 
     await client.query(createUser);
+    await client.query(dropOrganisation);
     await client.query(createOrganization);
     console.log("Tables created successfully!");
   } catch (err) {
